@@ -9,86 +9,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
 #include <iostream>
 #include <fstream>
 
 #include "protoparse.h"
-
-void dump(unsigned char* buf, int size) {
-    int i;
-    for (i = 0; i < size; i++) {
-        if (i % 16 == 0)
-            printf("\n");
-        printf("%02x ", buf[i]);
-    }
-}
-
-
-/* returns packet id */
-static u_int32_t print_pkt (struct nfq_data *tb)
-{
-    int id = 0;
-    struct nfqnl_msg_packet_hdr *ph;
-    struct nfqnl_msg_packet_hw *hwph;
-    u_int32_t mark,ifi; 
-    int ret;
-    unsigned char *data;
-
-    ph = nfq_get_msg_packet_hdr(tb);
-    if (ph) {
-        id = ntohl(ph->packet_id);
-        printf("hw_protocol=0x%04x hook=%u id=%u ",
-            ntohs(ph->hw_protocol), ph->hook, id);
-    }
-
-    hwph = nfq_get_packet_hw(tb);
-    if (hwph) {
-        int i, hlen = ntohs(hwph->hw_addrlen);
-
-        printf("hw_src_addr=");
-        for (i = 0; i < hlen-1; i++)
-            printf("%02x:", hwph->hw_addr[i]);
-        printf("%02x ", hwph->hw_addr[hlen-1]);
-    }
-
-    mark = nfq_get_nfmark(tb);
-    if (mark)
-        printf("mark=%u ", mark);
-
-    ifi = nfq_get_indev(tb);
-    if (ifi)
-        printf("indev=%u ", ifi);
-
-    ifi = nfq_get_outdev(tb);
-    if (ifi)
-        printf("outdev=%u ", ifi);
-    ifi = nfq_get_physindev(tb);
-    if (ifi)
-        printf("physindev=%u ", ifi);
-
-    ifi = nfq_get_physoutdev(tb);
-    if (ifi)
-        printf("physoutdev=%u ", ifi);
-
-    ret = nfq_get_payload(tb, &data);
-    // if (ret >= 0) {
-    //     int print_len = ret > 24 ? 24 : ret;
-    //     dump(data, print_len);
-    //     printf("payload_len=%d ", ret);
-    // }
-    // fputc('\n', stdout)
-    if (ret >= 0) {
-        L7Parser p(data);
-        if (p.http_hdr.count("Host")) { // if exist
-            std::cout << "[HOST] " << p.http_hdr["Host"] << '\n';
-        }
-    }
-
-    return id;
-}
 
 std::unordered_map<std::string, int> mal_url_list;
 static bool isContainMalHost(struct nfq_data *tb, u_int32_t *id) {
@@ -118,22 +44,6 @@ static bool isContainMalHost(struct nfq_data *tb, u_int32_t *id) {
     }
     return false;
 }
-
-size_t mapEntireFile(const char *fname, char *mapped_addr) {
-    int fd = open(fname, O_RDONLY);
-    if (fd == -1)
-        fprintf(stderr, "[ERROR] open");
-
-    struct stat sb;
-    if (fstat(fd, &sb) == -1)             /* obtain file size */
-        fprintf(stderr, "[ERROR] fstat");
-            
-    size_t file_size = sb.st_size;
-    mapped_addr = (char*)mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    close(fd);
-    return file_size;
-}
-
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
           struct nfq_data *nfa, void *data)

@@ -1,9 +1,11 @@
-CC = g++
-LDLIBS = -lnetfilter_queue
+CC       := g++
+LDLIBS   := -lnetfilter_queue
+# CFLAGS   := -g
 
-OBJECTS = nfq_test.o protoparse.o
-HEADERS = protoparse.h
-TARGET = nfq_test
+
+TARGET  := nfq_test
+OBJECTS := $(patsubst %cpp,%o,$(wildcard src/*.cpp)) $(patsubst %c,%o,$(wildcard src/*.c))
+HEADERS := $(wildcard src/*.h)
 
 $(TARGET): $(OBJECTS)
 	$(CC) -o $(TARGET) $(OBJECTS) $(LDLIBS)
@@ -11,6 +13,7 @@ $(TARGET): $(OBJECTS)
 %.o: %.cpp $(HEADERS)
 	$(CC) $(CFLAGS) -c -o $@ $< 
 
+.PHONY: clean new
 clean:
 	rm -f $(OBJECTS) $(TARGET)
 
